@@ -58,3 +58,18 @@ public func loadWeights(
     }
     return weights
 }
+
+/// Cast every float32 parameter/buffer of `module` (recursively) to `dtype` and
+/// re-materialize. Used to run inference-only modules (vocoder, DiT) in lower
+/// precision (bf16) for ~2× memory-bandwidth throughput. Non-float parameters are
+/// left untouched. bf16 is preferred over fp16 here: it keeps fp32's exponent
+/// range, so SnakeBeta's `1/exp(beta)` and RMSNorm's sum-of-squares don't
+/// overflow/underflow the way they do in fp16.
+public func castParameters(_ module: Module, to dtype: DType) {
+    var d = [String: MLXArray]()
+    for (k, v) in module.parameters().flattened() {
+        d[k] = v.dtype == .float32 ? v.asType(dtype) : v
+    }
+    module.update(parameters: ModuleParameters.unflattened(d))
+    eval(module)
+}

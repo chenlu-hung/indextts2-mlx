@@ -234,6 +234,11 @@ final class FinalLayer: Module {
 }
 
 final class DiT: Module {
+    /// Internal compute precision. Set to `.bfloat16` (via `castParameters`) for
+    /// ~2× speedup; inputs are cast in and the velocity cast back to fp32 on exit
+    /// so the CFM Euler loop stays fp32.
+    var computeDType: DType = .float32
+
     let x_embedder: Linear
     let cond_projection: Linear
     let cond_embedder: Embedding           // discrete content (unused at inference)
@@ -271,8 +276,14 @@ final class DiT: Module {
     /// `x`, `promptX`: (B, 80, T) NCL. `t`: (B,). `style`: (B, 192). `cond`: (B, T, 512).
     /// Returns (B, 80, T) NCL.
     func callAsFunction(
-        _ x: MLXArray, _ promptX: MLXArray, _ t: MLXArray, _ style: MLXArray, _ cond0: MLXArray
+        _ x0: MLXArray, _ promptX0: MLXArray, _ t0: MLXArray, _ style0: MLXArray, _ cond00: MLXArray
     ) -> MLXArray {
+        let dt = computeDType
+        let x = x0.asType(dt)
+        let promptX = promptX0.asType(dt)
+        let t = t0.asType(dt)
+        let style = style0.asType(dt)
+        let cond0 = cond00.asType(dt)
         let b = x.dim(0), t_len = x.dim(2)
         let t1 = t_embedder(t)                       // (B, 512)
         let cond = cond_projection(cond0)            // (B, T, 512)
@@ -295,12 +306,12 @@ final class DiT: Module {
         var xOut = conv1(xRes)                       // (B, T, 512) NLC
         xOut = xOut.transposed(0, 2, 1)              // (B, 512, T) NCL
         let t2 = t_embedder2(t)                      // (B, 512)
-        let xMaskWN = MLXArray.ones([b, 1, t_len])
+        let xMaskWN = MLXArray.ones([b, 1, t_len], dtype: dt)
         var wnOut = wavenet(xOut, xMaskWN, g: t2.expandedDimensions(axis: 2))  // (B,512,T) NCL
         wnOut = wnOut.transposed(0, 2, 1)            // (B, T, 512) NLC
         xOut = wnOut + res_projection(xRes)          // (B, T, 512)
         xOut = final_layer(xOut, t1)                 // (B, T, 512)
         xOut = conv2(xOut)                           // (B, T, 80)
-        return xOut.transposed(0, 2, 1)              // (B, 80, T) NCL
+        return xOut.transposed(0, 2, 1).asType(.float32)  // (B, 80, T) NCL
     }
 }
