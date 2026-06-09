@@ -80,6 +80,9 @@ public final class BigVGANV2: Module {
     let numKernels: Int
     let numUpsamples: Int
     let useTanhAtFinal: Bool
+    /// Internal compute precision. Set to `.bfloat16` (via `castParameters`) for
+    /// ~2× speedup; inputs are cast in and the waveform cast back to fp32 on exit.
+    var computeDType: DType = .float32
 
     var conv_pre: Conv1d
     let ups: [ConvTransposed1d]
@@ -135,7 +138,7 @@ public final class BigVGANV2: Module {
 
     /// `mel`: (batch, numMels, time) NCL. Returns (batch, 1, samples) NCL.
     public func callAsFunction(_ mel: MLXArray) -> MLXArray {
-        var x = mel.transposed(0, 2, 1)  // NCL -> NLC
+        var x = mel.transposed(0, 2, 1).asType(computeDType)  // NCL -> NLC
         x = conv_pre(x)
 
         for i in 0 ..< numUpsamples {
@@ -150,6 +153,6 @@ public final class BigVGANV2: Module {
         x = activation_post(x)
         x = conv_post(x)
         x = useTanhAtFinal ? MLX.tanh(x) : MLX.clip(x, min: -1.0, max: 1.0)
-        return x.transposed(0, 2, 1)  // NLC -> NCL
+        return x.transposed(0, 2, 1).asType(.float32)  // NLC -> NCL
     }
 }

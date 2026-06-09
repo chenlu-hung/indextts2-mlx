@@ -81,9 +81,30 @@ After conversion the runtime needs only the `*_mlx.safetensors` +
     --out  out.wav
 ```
 
-Options: `--emo-ref <wav>` (separate emotion reference), `--steps 25`
+Batch a whole `.srt` (one `.wav` per subtitle entry) with `--srt in.srt --out <dir>`
+instead of `--text`/`--out`.
+
+Options: `--emo-ref <wav>` (separate emotion reference), `--steps 20`
 (diffusion), `--cfg 0.7`, `--seed N`, `--temperature 0.8`, `--top-p 0.8`,
-`--top-k 30`, `--speed 1.0`, `--max-mel-tokens 1500`, `--preproc-dir <dir>`.
+`--top-k 30`, `--speed 1.0`, `--max-mel-tokens 1500`, `--preproc-dir <dir>`,
+`--precision fp16|fp32|bf16`, `--profile`.
+
+## Performance
+
+The two heaviest stages — CFM/DiT diffusion and the BigVGAN vocoder — run in
+**fp16** by default (`--precision`), which is native on all Apple Silicon and
+~1.3× faster than fp32 with inaudible quality loss (waveform corr 0.998 vs fp32).
+The CFM Euler loop and the GPT stay fp32.
+
+The CFM step count defaults to **20** (down from the reference's 25): on fp16 the
+spectral change vs 25 steps is ~0.012 and inaudible.
+
+> **bf16 caveat:** the M1 GPU has no native bf16, so `--precision bf16` is
+> *emulated* and ~7× slower there. Use fp16 on M1; bf16 only helps on hardware
+> with native support (M2+/others).
+
+Pass `--profile` to print a per-stage wall-clock breakdown (GPT cond / GPT AR /
+GPT latent+LR / CFM / BigVGAN) accumulated across all segments.
 
 ## Verification (torch-free)
 
@@ -112,4 +133,3 @@ Measured agreement (Swift vs numpy float64 reference):
 
 - `emo_matrix` (feat2.pt) 8-emotion-weight control — the reference-audio and
   separate-emotion-reference paths work; explicit emotion-weight vectors do not.
-- SRT-timed batch synthesis.

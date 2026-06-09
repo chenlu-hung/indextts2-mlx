@@ -16,6 +16,18 @@ func arg(_ name: String) -> String? {
 }
 func flag(_ name: String) -> Bool { CommandLine.arguments.contains(name) }
 
+/// `--precision fp32|fp16|bf16` → DType for the CFM/DiT + BigVGAN stages.
+/// Default is fp16: native on all Apple Silicon, ~1.3× faster than fp32 with
+/// inaudible quality loss (waveform corr 0.998 vs fp32). Note bf16 is NOT native
+/// on M1 → emulated and ~7× slower; prefer fp16 unless on M2+/other.
+func computeDType() -> DType {
+    switch arg("--precision")?.lowercased() {
+    case "fp32", "float32", "32": return .float32
+    case "bf16", "bfloat16": return .bfloat16
+    default: return .float16
+    }
+}
+
 let modelDir = arg("--model") ?? "models/mlx-indextts2-standard-8bit"
 let modelURL = URL(fileURLWithPath: modelDir)
 
@@ -63,7 +75,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     let preprocDir = arg("--preproc-dir") ?? "models/preprocessing"
 
     err("IndexTTS-2 MLX-Swift — synthesis")
-    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose)
+    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose, computeDType: computeDType())
     let refEnc = try ReferenceEncoder(dir: URL(fileURLWithPath: preprocDir), verbose: verbose)
     err("loading reference \(refPath) …")
     let speaker = try tts.makeSpeaker(
@@ -115,15 +127,22 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     let srtStem = URL(fileURLWithPath: srtPath).deletingPathExtension().lastPathComponent
     try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
 
+    let doProfile = flag("--profile")
     err("IndexTTS-2 MLX-Swift — SRT batch (\(entries.count) segments)")
-    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose)
+    let tLoad0 = Date()
+    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose, computeDType: computeDType())
     let refEnc = try ReferenceEncoder(dir: URL(fileURLWithPath: preprocDir), verbose: verbose)
+    err(String(format: "model + preproc load: %.2fs", Date().timeIntervalSince(tLoad0)))
     err("loading reference \(refPath) …")
+    let tRef0 = Date()
     let speaker = try tts.makeSpeaker(
         audioURL: URL(fileURLWithPath: refPath), using: refEnc, verbose: verbose)
+    err(String(format: "reference preprocess (W2V/CAMPPlus/RepCodec/mel): %.2fs",
+               Date().timeIntervalSince(tRef0)))
 
     var opts = GenerationOptions()
     opts.verbose = verbose
+    opts.profile = doProfile
     if let v = arg("--steps").flatMap(Int.init) { opts.diffusionSteps = v }
     if let v = arg("--seed").flatMap(UInt64.init) { opts.seed = v }
     if let v = arg("--cfg").flatMap(Float.init) { opts.cfgRate = v }
@@ -152,6 +171,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
         err("  ✓ \(outFile.lastPathComponent) (\(String(format: "%.2f", Double(audio.count) / Double(tts.sampleRate)))s)")
     }
     err("✓ SRT batch complete → \(outDir)")
+    if doProfile { StageTimer.shared.report { err($0) } }
 } else if flag("--gen-smoke") {
     // End-to-end generation smoke: run the full MLX chain (GPT AR -> S2Mel CFM ->
     // BigVGAN) on synthetic reference conditioning. Output is not meaningful audio
@@ -303,6 +323,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     err("       indextts2 --model <dir> --ref <ref.wav> --srt input.srt --out <dir>")
     err("  [--preproc-dir models/preprocessing] [--steps 25] [--cfg 0.7] [--seed N]")
     err("  [--temperature 0.8] [--top-p 0.8] [--top-k 30] [--speed 1.0] [--max-mel-tokens 1500]")
+    err("  [--steps 20] [--precision fp16|fp32|bf16  (default fp16)] [--profile]")
     err("diagnostics: --smoke | --gen-smoke [--out out.wav] | --mel-dump |")
     err("  --campplus-test | --repcodec-test | --w2vbert-test")
 }
