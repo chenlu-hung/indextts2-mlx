@@ -17,7 +17,7 @@ func sampleMelToken(
     repetitionPenalty: Float,
     generated: [Int]
 ) -> Int {
-    var logits = logits0.reshaped([-1])
+    var logits = logits0.reshaped([-1]).asType(.float32)
     let vocab = logits.dim(0)
 
     // Repetition penalty: positive logits divided, negative multiplied.

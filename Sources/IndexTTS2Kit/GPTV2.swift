@@ -14,6 +14,12 @@ import MLXNN
 public final class UnifiedVoiceV2: Module {
     let cfg: IndexTTS2Config.GPT
 
+    /// Precision of the conditioning encoders and the transformer backbone. Set
+    /// when `IndexTTSv2` casts the GPT; the conditioning inputs are cast to match,
+    /// because they arrive as fp32 from the preprocessing stack and would
+    /// otherwise promote the whole path back to fp32 and cancel the speedup.
+    var computeDType: DType = .float32
+
     // Speaker conditioning
     let conditioning_encoder: Conformer
     let perceiver_encoder: PerceiverResampler
@@ -86,13 +92,13 @@ public final class UnifiedVoiceV2: Module {
 
     /// `speechCondNCL`: (B, 1024, T) semantic features. Returns (B, latents, dim).
     func getConditioning(_ speechCondNCL: MLXArray) -> MLXArray {
-        let x = speechCondNCL.transposed(0, 2, 1)  // NCL -> NLC
+        let x = speechCondNCL.transposed(0, 2, 1).asType(computeDType)  // NCL -> NLC
         return perceiver_encoder(conditioning_encoder(x))
     }
 
     /// `speechCondNCL`: (B, 1024, T). Returns the emotion vector (B, dim).
     func getEmovec(_ speechCondNCL: MLXArray) -> MLXArray {
-        let x = speechCondNCL.transposed(0, 2, 1)
+        let x = speechCondNCL.transposed(0, 2, 1).asType(computeDType)
         let conds = emo_perceiver_encoder(emo_conditioning_encoder(x))  // (B, 1, 1024)
         let raw = conds.reshaped([conds.dim(0), conds.dim(2)])           // (B, 1024)
         return emo_layer(emovec_layer(raw))                             // (B, dim)

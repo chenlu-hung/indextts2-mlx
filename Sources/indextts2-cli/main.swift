@@ -28,6 +28,18 @@ func computeDType() -> DType {
     }
 }
 
+/// `--gpt-precision fp32|fp16|bf16` → DType for the GPT: the two conditioning
+/// Conformers plus the 24-layer backbone, together about half the runtime. This
+/// checkpoint stores them fp32 and the default keeps them there, so existing runs
+/// are unchanged; fp16 is what the 2.5 checkpoint ships and runs as.
+func gptDType() -> DType {
+    switch arg("--gpt-precision")?.lowercased() {
+    case "fp16", "float16", "16": return .float16
+    case "bf16", "bfloat16": return .bfloat16
+    default: return .float32
+    }
+}
+
 let modelDir = arg("--model") ?? "models/mlx-indextts2-standard-8bit"
 let modelURL = URL(fileURLWithPath: modelDir)
 
@@ -73,9 +85,12 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     let verbose = !flag("--quiet")
     let outPath = arg("--out") ?? "out.wav"
     let preprocDir = arg("--preproc-dir") ?? "models/preprocessing"
+    let doProfile = flag("--profile")
 
     err("IndexTTS-2 MLX-Swift — synthesis")
-    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose, computeDType: computeDType())
+    let tts = try IndexTTSv2(
+        modelDir: modelURL, verbose: verbose, computeDType: computeDType(),
+        gptDType: gptDType())
     let refEnc = try ReferenceEncoder(dir: URL(fileURLWithPath: preprocDir), verbose: verbose)
     err("loading reference \(refPath) …")
     let speaker = try tts.makeSpeaker(
@@ -83,6 +98,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
 
     var opts = GenerationOptions()
     opts.verbose = verbose
+    opts.profile = doProfile
     if let v = arg("--steps").flatMap(Int.init) { opts.diffusionSteps = v }
     if let v = arg("--seed").flatMap(UInt64.init) { opts.seed = v }
     if let v = arg("--cfg").flatMap(Float.init) { opts.cfgRate = v }
@@ -101,6 +117,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     guard !audio.isEmpty else { err("⚠️  no audio generated"); exit(1) }
     try AudioIO.writeWAV(audio, sampleRate: tts.sampleRate, to: URL(fileURLWithPath: outPath))
     err("✓ wrote \(outPath) (\(String(format: "%.2f", Double(audio.count) / Double(tts.sampleRate)))s)")
+    if doProfile { StageTimer.shared.report { err($0) } }
 } else if let srtPath = arg("--srt"), let refPath = arg("--ref") {
     // SRT batch synthesis: generate one .wav per subtitle entry.
     // Output files go into --out <dir> named <srt-stem>_001.wav, _002.wav, …
@@ -130,7 +147,9 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     let doProfile = flag("--profile")
     err("IndexTTS-2 MLX-Swift — SRT batch (\(entries.count) segments)")
     let tLoad0 = Date()
-    let tts = try IndexTTSv2(modelDir: modelURL, verbose: verbose, computeDType: computeDType())
+    let tts = try IndexTTSv2(
+        modelDir: modelURL, verbose: verbose, computeDType: computeDType(),
+        gptDType: gptDType())
     let refEnc = try ReferenceEncoder(dir: URL(fileURLWithPath: preprocDir), verbose: verbose)
     err(String(format: "model + preproc load: %.2fs", Date().timeIntervalSince(tLoad0)))
     err("loading reference \(refPath) …")
@@ -155,6 +174,10 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
         opts.emotionEmb = try refEnc.encodeEmotion(audioURL: URL(fileURLWithPath: emoRef))
     }
 
+    // Same reference for every entry, so the speaker/emotion conditioning is the
+    // same tensor throughout: compute it once instead of once per subtitle line.
+    let conditioning = tts.prepareConditioning(speaker: speaker, emotionEmb: opts.emotionEmb)
+
     for entry in entries {
         let outFile = URL(fileURLWithPath: outDir)
             .appendingPathComponent(String(format: "%@_%03d.wav", srtStem, entry.index))
@@ -162,7 +185,8 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
         var segOpts = opts
         // Use deterministic seed per segment so reruns are reproducible.
         if let base = opts.seed { segOpts.seed = base &+ UInt64(entry.index) }
-        let audio = tts.generate(text: entry.text, speaker: speaker, options: segOpts)
+        let audio = tts.generate(
+            text: entry.text, speaker: speaker, options: segOpts, conditioning: conditioning)
         if audio.isEmpty {
             err("  ⚠️  no audio for segment \(entry.index), skipping")
             continue
@@ -324,6 +348,7 @@ if flag("--smoke") || CommandLine.arguments.count == 1 {
     err("  [--preproc-dir models/preprocessing] [--steps 25] [--cfg 0.7] [--seed N]")
     err("  [--temperature 0.8] [--top-p 0.8] [--top-k 30] [--speed 1.0] [--max-mel-tokens 1500]")
     err("  [--steps 20] [--precision fp16|fp32|bf16  (default fp16)] [--profile]")
+    err("  [--gpt-precision fp32|fp16|bf16  (default fp32)]")
     err("diagnostics: --smoke | --gen-smoke [--out out.wav] | --mel-dump |")
     err("  --campplus-test | --repcodec-test | --w2vbert-test")
 }

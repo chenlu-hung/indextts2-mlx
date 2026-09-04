@@ -83,9 +83,16 @@ public final class IndexTTSv2 {
 
     /// `computeDType` sets the precision of the CFM/DiT estimator and BigVGAN
     /// vocoder (the two heaviest stages). `.bfloat16` ≈ 2× memory-bandwidth
-    /// throughput with negligible quality loss; the GPT and CFM Euler loop stay
-    /// fp32. Default `.float32` preserves the original numerics.
-    public init(modelDir: URL, verbose: Bool = false, computeDType: DType = .float32) throws {
+    /// throughput with negligible quality loss; the CFM Euler loop stays fp32.
+    /// Default `.float32` preserves the original numerics.
+    ///
+    /// `gptDType` does the same for the GPT — the conditioning Conformers plus the
+    /// 24-layer backbone, together about half the runtime. It defaults to fp32,
+    /// the precision this checkpoint ships as, so existing runs are unchanged.
+    public init(
+        modelDir: URL, verbose: Bool = false, computeDType: DType = .float32,
+        gptDType: DType = .float32
+    ) throws {
         self.config = try IndexTTS2Config.load(from: modelDir.appendingPathComponent("config.json"))
         self.sampleRate = config.sampleRate
         self.gpt = try UnifiedVoiceV2.fromPretrained(
@@ -109,26 +116,56 @@ public final class IndexTTSv2 {
                     Data("✓ CFM/DiT + BigVGAN cast to \(computeDType)\n".utf8))
             }
         }
+
+        // The 2.5 checkpoint ships its GPT in fp16 and runs it that way; this one
+        // ships fp32. Casting the parameters alone is not enough — the conditioning
+        // features arrive fp32 from W2V-BERT, so `gpt.computeDType` casts them too.
+        if gptDType != .float32 {
+            gpt.computeDType = gptDType
+            castParameters(gpt, to: gptDType)
+            if verbose {
+                FileHandle.standardError.write(Data("✓ GPT cast to \(gptDType)\n".utf8))
+            }
+        }
+    }
+
+    /// GPT conditioning: speaker (Conformer+Perceiver) + emotion (reference audio).
+    ///
+    /// This depends only on the reference audio and the optional separate emotion
+    /// reference, so it is the same tensor for every utterance spoken in one voice.
+    /// A batch should compute it once and hand it to each `generate` call: the two
+    /// Conformers are around a fifth of a batch run, and recomputing them per
+    /// segment buys nothing.
+    public func prepareConditioning(
+        speaker: SpeakerConditioning, emotionEmb: MLXArray? = nil
+    ) -> MLXArray {
+        let spkNCL = speaker.spkCondEmb.transposed(0, 2, 1)  // (1, 1024, T)
+        let speechCond = gpt.getConditioning(spkNCL)
+        // Emotion from a separate reference if supplied, else the speaker reference.
+        let emoNCL = (emotionEmb ?? speaker.spkCondEmb).transposed(0, 2, 1)
+        let emoVec = gpt.getEmovec(emoNCL)
+        let c = gpt.prepareConditioningLatents(speechCond, emoVec)
+        eval(c)
+        return c
     }
 
     /// Synthesize speech for `text` using the reference `speaker` conditioning.
     /// Returns mono 22.05 kHz float samples in [-1, 1].
+    ///
+    /// Pass `conditioning` from `prepareConditioning` to reuse it across a batch.
+    /// Doing so bypasses `options.emotionEmb`, which is baked into the precomputed
+    /// tensor — so a caller that varies the emotion reference per utterance must
+    /// call `prepareConditioning` again rather than reuse one conditioning.
     public func generate(
-        text: String, speaker: SpeakerConditioning, options: GenerationOptions = GenerationOptions()
+        text: String, speaker: SpeakerConditioning,
+        options: GenerationOptions = GenerationOptions(),
+        conditioning precomputed: MLXArray? = nil
     ) -> [Float] {
         if let seed = options.seed { MLXRandom.seed(seed) }
         let prof = options.profile
 
-        // GPT conditioning: speaker (Conformer+Perceiver) + emotion (reference audio).
         let conditioning = timed(prof, "GPT cond") { () -> MLXArray in
-            let spkNCL = speaker.spkCondEmb.transposed(0, 2, 1)  // (1, 1024, T)
-            let speechCond = gpt.getConditioning(spkNCL)
-            // Emotion from a separate reference if supplied, else the speaker reference.
-            let emoNCL = (options.emotionEmb ?? speaker.spkCondEmb).transposed(0, 2, 1)
-            let emoVec = gpt.getEmovec(emoNCL)
-            let c = gpt.prepareConditioningLatents(speechCond, emoVec)
-            eval(c)
-            return c
+            precomputed ?? prepareConditioning(speaker: speaker, emotionEmb: options.emotionEmb)
         }
 
         // Tokenize + segment.
