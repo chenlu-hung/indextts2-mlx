@@ -47,6 +47,46 @@ W2V-BERT 2.0 semantic features → RepCodec quantize (S_ref) ; CAMPPlus style (1
 `./build.sh Debug && ./.build/xcode/Build/Products/Debug/indextts2 --model models/mlx-indextts2-standard-8bit --gen-smoke --out /tmp/g.wav`
 (also `--smoke` load-check, `--mel-dump` mel parity. Mel ref check: `uv run --with "numpy<2" --with librosa python /tmp/ref_mel.py`.)
 
+## Build configuration — use Release for any real batch
+
+`build.sh` defaults to **Debug** (`CONFIG="${1:-Debug}"`), which is what you want while porting.
+For anything that synthesises more than a handful of segments, build Release instead:
+
+```bash
+./build.sh Release
+# → .build/xcode/Build/Products/Release/indextts2
+```
+
+Both configs coexist under `.build/xcode/Build/Products/`, so keep Debug around for iteration
+and point batch jobs at the Release binary explicitly.
+
+**Measured difference** (this machine, 2026-08-13; 397-cue Chinese lecture deck driven by
+`~/.claude/skills/lecture-video-generator/scripts/synthesize_tts.py`, model
+`mlx-indextts2-standard-8bit`, zero-shot `--ref`):
+
+| build | per cue | 397 cues |
+|---|---|---|
+| Debug | ~2 min | ~14 h |
+| Release | ~55 s | ~6 h |
+
+≈ **2.3× faster**. Not the 10× you might expect — most of the work is inside MLX's Metal kernels,
+which are prebuilt either way — but 8 hours of wall clock on one deck is worth the one-off build.
+Debug was the only config documented here for a long time; that cost a full extra pass before
+anyone noticed, hence this section.
+
+Downstream callers take the binary path as an argument, e.g.:
+
+```bash
+python3 synthesize_tts.py <topic_dir> --ref voice/ref.wav \
+    --indextts2-dir "$INDEXTTS2_DIR" \
+    --indextts2-bin "$INDEXTTS2_DIR/.build/xcode/Build/Products/Release/indextts2"
+```
+
+Interrupted batches are resumable: per-cue wavs land in `<topic_dir>/.tts_segments/`, and
+`--skip-synth` reuses them instead of regenerating. **Switching build config invalidates nothing**
+(the wavs are just audio), so it is safe to kill a Debug run, build Release, and restart — but
+delete `.tts_segments/` if you want the whole deck synthesised by one build for consistency.
+
 **`generate()` is the entry point** (`Pipeline.swift::IndexTTSv2.generate(text:speaker:options:)`). It consumes a
 `SpeakerConditioning{spkCondEmb (1,T,1024), style (1,192), promptCondition (1,Lp,512), refMel (1,80,Lp)}`.
 The only thing between here and real `.wav` synthesis is producing that struct from audio (tasks 7-10).
