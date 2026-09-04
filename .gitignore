@@ -2,6 +2,8 @@
 .swiftpm/
 models/
 *.wav
+voice/ref.txt
+.claude/scheduled_tasks.lock
 Package.resolved
 .DS_Store
 __pycache__/
