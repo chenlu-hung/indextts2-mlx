@@ -1,10 +1,10 @@
 # Module: `Sources/IndexTTS2Kit`
 
 ## Summary
-`IndexTTS2Kit` is the core Swift library implementing the full IndexTTS-2 text-to-speech pipeline on Apple MLX with no PyTorch dependency. It contains every neural network layer and model: W2VBert (semantic features), CAMPPlus (speaker style embedding), GPT/GPTv2 (autoregressive token decoder), DiT/CFM (Conditional Flow Matching mel synthesizer), BigVGANV2 (neural vocoder), RepCodec/VQ2Emb (semantic codec), plus pure-Swift preprocessing (KaldiFbank, Mel, DSP, TextTokenizer). The `Pipeline` / `IndexTTSv2` class is the main orchestrator that wires all modules together for end-to-end synthesis from text + reference audio to waveform.
+`IndexTTS2Kit` is the core Swift library implementing the full IndexTTS-2 text-to-speech pipeline on Apple MLX with no PyTorch dependency. It contains every neural network layer and model: W2VBert (semantic features), CAMPPlus (speaker style embedding), GPT/GPTv2 (autoregressive token decoder), DiT/CFM (Conditional Flow Matching mel synthesizer), BigVGANV2 (neural vocoder), RepCodec/VQ2Emb (semantic codec), plus pure-Swift preprocessing (KaldiFbank, Mel, DSP, TextTokenizer). `Pipeline` / `IndexTTSv2` orchestrates the whole run: `generate` goes text -> codes -> mel -> waveform, while `prepareConditioning` exposes the reference-only speaker/emotion tensor so a batch computes it once and hands it to every call. Compute precision is per-stage and switchable — CFM/DiT and BigVGAN default to fp16, the GPT and its conditioning inputs to fp32 (`gptDType`), and the CFM Euler integration stays fp32 either way; `Profiling.swift`'s `StageTimer` accumulates per-stage wall-clock timings across `generate` calls for the `--profile` path.
 
 <!-- projectmap:auto:start (generated — do not edit by hand) -->
-## Files (30)
+## Files (31)
 - `Sources/IndexTTS2Kit/Activations.swift`
 - `Sources/IndexTTS2Kit/Attention.swift`
 - `Sources/IndexTTS2Kit/AudioIO.swift`
@@ -26,6 +26,7 @@
 - `Sources/IndexTTS2Kit/Normalize.swift`
 - `Sources/IndexTTS2Kit/Perceiver.swift`
 - `Sources/IndexTTS2Kit/Pipeline.swift`
+- `Sources/IndexTTS2Kit/Profiling.swift`
 - `Sources/IndexTTS2Kit/ReferenceEncoder.swift`
 - `Sources/IndexTTS2Kit/RepCodec.swift`
 - `Sources/IndexTTS2Kit/S2Mel.swift`
@@ -36,7 +37,7 @@
 - `Sources/IndexTTS2Kit/W2VBert.swift`
 - `Sources/IndexTTS2Kit/WaveNet.swift`
 
-## Public symbols (261)
+## Public symbols (269)
 - `function normalizeWeight` — Sources/IndexTTS2Kit/Activations.swift:7
 - `class WNConv1d` — Sources/IndexTTS2Kit/Activations.swift:12
 - `function callAsFunction` — Sources/IndexTTS2Kit/Activations.swift:37
@@ -84,7 +85,7 @@
 - `function callAsFunction` — Sources/IndexTTS2Kit/BigVGANV2.swift:64
 - `function getPadding` — Sources/IndexTTS2Kit/BigVGANV2.swift:75
 - `class BigVGANV2` — Sources/IndexTTS2Kit/BigVGANV2.swift:79
-- `function callAsFunction` — Sources/IndexTTS2Kit/BigVGANV2.swift:137
+- `function callAsFunction` — Sources/IndexTTS2Kit/BigVGANV2.swift:140
 - `class CampBatchNorm2d` — Sources/IndexTTS2Kit/CAMPPlus.swift:18
 - `function callAsFunction` — Sources/IndexTTS2Kit/CAMPPlus.swift:32
 - `class CampBatchNorm1d` — Sources/IndexTTS2Kit/CAMPPlus.swift:41
@@ -97,7 +98,7 @@
 - `function callAsFunction` — Sources/IndexTTS2Kit/CAMPPlus.swift:117
 - `class CampFCM` — Sources/IndexTTS2Kit/CAMPPlus.swift:129
 - `function callAsFunction` — Sources/IndexTTS2Kit/CAMPPlus.swift:154
-- …and 201 more
+- …and 209 more
 
 ## Dependencies (imports)
 - `AVFoundation`

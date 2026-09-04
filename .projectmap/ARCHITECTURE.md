@@ -17,8 +17,12 @@
 - `scripts/torch_bin_to_safetensors.py`
 
 ## Build / test
-- **build**: `swift build`
-- **test**: `swift test`
+- **build**: `./build.sh [Debug|Release]` — wraps `xcodebuild`, which is required: plain
+  `swift build` does not compile MLX's Metal shaders (`default.metallib`). Binary lands at
+  `.build/xcode/Build/Products/<config>/indextts2`; Debug is the default and Release is
+  ~2.3x faster, so point real batch jobs at the Release binary explicitly.
+- **test**: no test target. `indextts2 --smoke` is the smoke check (module loading + one
+  forward pass); the `scripts/ref_*.py` NumPy references are the correctness ground truth.
 
 ## Conventions
 - All ML layers use `MLX` arrays (NLC layout: batch × time × channels); reshape to `NCL` (channels-first) only at convolutional boundaries.
@@ -33,7 +37,7 @@
 | Module | Files | Doc | One-liner |
 |---|---|---|---|
 | `(root)` | 1 | [doc](modules/_root.md) | Swift Package Manager config: declares `IndexTTS2Kit` lib + `indextts2-cli` exe with MLX dependencies |
-| `Sources/IndexTTS2Kit` | 30 | [doc](modules/Sources__IndexTTS2Kit.md) | Core TTS library: all MLX Swift models (W2VBert, CAMPPlus, GPT, CFM/DiT, BigVGANV2, RepCodec) + preprocessing + Pipeline orchestrator |
-| `Sources/indextts2-cli` | 1 | [doc](modules/Sources__indextts2-cli.md) | CLI entry point: arg parsing, smoke test, and end-to-end synthesis driver |
+| `Sources/IndexTTS2Kit` | 31 | [doc](modules/Sources__IndexTTS2Kit.md) | Core TTS library: all MLX Swift models (W2VBert, CAMPPlus, GPT, CFM/DiT, BigVGANV2, RepCodec) + preprocessing + Pipeline orchestrator; per-stage precision, hoistable conditioning, StageTimer profiling |
+| `Sources/indextts2-cli` | 1 | [doc](modules/Sources__indextts2-cli.md) | CLI entry point: arg parsing (`--precision`, `--gpt-precision`, `--profile`, `--smoke`), smoke test, and single/SRT-batch synthesis driver that reuses one conditioning per batch |
 | `scripts` | 7 | [doc](modules/scripts.md) | Python weight converters (PyTorch → safetensors) and NumPy reference impls for preprocessing validation |
 <!-- projectmap:modules:end -->

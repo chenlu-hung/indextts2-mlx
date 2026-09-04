@@ -1,9 +1,9 @@
 {
-  "generated": "2026-06-08T08:19:35+00:00",
-  "mode": "build",
+  "generated": "2026-09-04T06:17:05+00:00",
+  "mode": "update",
   "depth": 2,
   "source": "git",
-  "files": 39,
+  "files": 40,
   "modules": {
     "(root)": {
       "hash": "a8e31b944d2f88fd2389b7bff950dffe9854ebf5113ce77382138dd674821a49",
@@ -11,12 +11,12 @@
       "doc": "modules/_root.md"
     },
     "Sources/IndexTTS2Kit": {
-      "hash": "17b12d909caade2de1705c78c31b0a50c0ca1e2599cf776436e49f78588cf3db",
-      "files": 30,
+      "hash": "b266dfd18f3b1f44ec942b415785cff680e6f96dc2c08dd922940a2e0c9d295d",
+      "files": 31,
       "doc": "modules/Sources__IndexTTS2Kit.md"
     },
     "Sources/indextts2-cli": {
-      "hash": "68b4a82c143f252982769a39cf734122b7134df1882893ff9d88900a938a8d60",
+      "hash": "ee456504e99aefeb7a28cf980aab410eced744889564bae3902359ddbb2d2eff",
       "files": 1,
       "doc": "modules/Sources__indextts2-cli.md"
     },

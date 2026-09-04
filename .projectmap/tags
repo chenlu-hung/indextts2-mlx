@@ -76,7 +76,7 @@ AMPBlock1V2	Sources/IndexTTS2Kit/BigVGANV2.swift	38;"	class
 callAsFunction	Sources/IndexTTS2Kit/BigVGANV2.swift	64;"	function
 getPadding	Sources/IndexTTS2Kit/BigVGANV2.swift	75;"	function
 BigVGANV2	Sources/IndexTTS2Kit/BigVGANV2.swift	79;"	class
-callAsFunction	Sources/IndexTTS2Kit/BigVGANV2.swift	137;"	function
+callAsFunction	Sources/IndexTTS2Kit/BigVGANV2.swift	140;"	function
 CampBatchNorm2d	Sources/IndexTTS2Kit/CAMPPlus.swift	18;"	class
 callAsFunction	Sources/IndexTTS2Kit/CAMPPlus.swift	32;"	function
 CampBatchNorm1d	Sources/IndexTTS2Kit/CAMPPlus.swift	41;"	class
@@ -153,7 +153,7 @@ FinalLayer	Sources/IndexTTS2Kit/DiT.swift	209;"	class
 layerNorm	Sources/IndexTTS2Kit/DiT.swift	221;"	function
 callAsFunction	Sources/IndexTTS2Kit/DiT.swift	228;"	function
 DiT	Sources/IndexTTS2Kit/DiT.swift	236;"	class
-callAsFunction	Sources/IndexTTS2Kit/DiT.swift	273;"	function
+callAsFunction	Sources/IndexTTS2Kit/DiT.swift	278;"	function
 KVCache	Sources/IndexTTS2Kit/GPT2.swift	13;"	class
 updateAndFetch	Sources/IndexTTS2Kit/GPT2.swift	19;"	function
 GPT2Attention	Sources/IndexTTS2Kit/GPT2.swift	54;"	class
@@ -166,13 +166,13 @@ GPT2Model	Sources/IndexTTS2Kit/GPT2.swift	127;"	class
 callAsFunction	Sources/IndexTTS2Kit/GPT2.swift	137;"	function
 sampleTopK	Sources/IndexTTS2Kit/GPT2.swift	149;"	function
 UnifiedVoiceV2	Sources/IndexTTS2Kit/GPTV2.swift	14;"	class
-getConditioning	Sources/IndexTTS2Kit/GPTV2.swift	88;"	function
-getEmovec	Sources/IndexTTS2Kit/GPTV2.swift	94;"	function
-prepareConditioningLatents	Sources/IndexTTS2Kit/GPTV2.swift	103;"	function
-prepareInputs	Sources/IndexTTS2Kit/GPTV2.swift	114;"	function
-generateMelCodes	Sources/IndexTTS2Kit/GPTV2.swift	126;"	function
-forwardLatent	Sources/IndexTTS2Kit/GPTV2.swift	172;"	function
-fromPretrained	Sources/IndexTTS2Kit/GPTV2.swift	200;"	function
+getConditioning	Sources/IndexTTS2Kit/GPTV2.swift	94;"	function
+getEmovec	Sources/IndexTTS2Kit/GPTV2.swift	100;"	function
+prepareConditioningLatents	Sources/IndexTTS2Kit/GPTV2.swift	109;"	function
+prepareInputs	Sources/IndexTTS2Kit/GPTV2.swift	120;"	function
+generateMelCodes	Sources/IndexTTS2Kit/GPTV2.swift	132;"	function
+forwardLatent	Sources/IndexTTS2Kit/GPTV2.swift	178;"	function
+fromPretrained	Sources/IndexTTS2Kit/GPTV2.swift	206;"	function
 compressSilence	Sources/IndexTTS2Kit/GenerateHelpers.swift	9;"	function
 crossfadeSegments	Sources/IndexTTS2Kit/GenerateHelpers.swift	32;"	function
 timeStretchWSOLA	Sources/IndexTTS2Kit/GenerateHelpers.swift	61;"	function
@@ -192,6 +192,7 @@ callAsFunction	Sources/IndexTTS2Kit/LengthRegulator.swift	81;"	function
 MishLayer	Sources/IndexTTS2Kit/LengthRegulator.swift	103;"	class
 IndexTTS2Error	Sources/IndexTTS2Kit/Loading.swift	5;"	enum
 loadWeights	Sources/IndexTTS2Kit/Loading.swift	25;"	function
+castParameters	Sources/IndexTTS2Kit/Loading.swift	68;"	function
 IndexTTSMel	Sources/IndexTTS2Kit/Mel.swift	16;"	enum
 slaneyMelBasis	Sources/IndexTTS2Kit/Mel.swift	27;"	function
 hzToMel	Sources/IndexTTS2Kit/Mel.swift	35;"	function
@@ -222,10 +223,17 @@ SpeakerConditioning	Sources/IndexTTS2Kit/Pipeline.swift	12;"	struct
 load	Sources/IndexTTS2Kit/Pipeline.swift	31;"	function
 get	Sources/IndexTTS2Kit/Pipeline.swift	33;"	function
 GenerationOptions	Sources/IndexTTS2Kit/Pipeline.swift	46;"	struct
-IndexTTSv2	Sources/IndexTTS2Kit/Pipeline.swift	69;"	class
-generate	Sources/IndexTTS2Kit/Pipeline.swift	95;"	function
-decodeSegment	Sources/IndexTTS2Kit/Pipeline.swift	166;"	function
-log	Sources/IndexTTS2Kit/Pipeline.swift	203;"	function
+IndexTTSv2	Sources/IndexTTS2Kit/Pipeline.swift	75;"	class
+prepareConditioning	Sources/IndexTTS2Kit/Pipeline.swift	139;"	function
+generate	Sources/IndexTTS2Kit/Pipeline.swift	159;"	function
+decodeSegment	Sources/IndexTTS2Kit/Pipeline.swift	231;"	function
+log	Sources/IndexTTS2Kit/Pipeline.swift	279;"	function
+timed	Sources/IndexTTS2Kit/Pipeline.swift	287;"	function
+StageTimer	Sources/IndexTTS2Kit/Profiling.swift	11;"	class
+reset	Sources/IndexTTS2Kit/Profiling.swift	25;"	function
+measure	Sources/IndexTTS2Kit/Profiling.swift	32;"	function
+tally	Sources/IndexTTS2Kit/Profiling.swift	44;"	function
+report	Sources/IndexTTS2Kit/Profiling.swift	50;"	function
 ReferenceEncoder	Sources/IndexTTS2Kit/ReferenceEncoder.swift	12;"	class
 Raw	Sources/IndexTTS2Kit/ReferenceEncoder.swift	36;"	struct
 encode	Sources/IndexTTS2Kit/ReferenceEncoder.swift	43;"	function
@@ -292,11 +300,13 @@ WN	Sources/IndexTTS2Kit/WaveNet.swift	42;"	class
 callAsFunction	Sources/IndexTTS2Kit/WaveNet.swift	64;"	function
 arg	Sources/indextts2-cli/main.swift	12;"	function
 flag	Sources/indextts2-cli/main.swift	17;"	function
-err	Sources/indextts2-cli/main.swift	22;"	function
-SRTEntry	Sources/indextts2-cli/main.swift	101;"	struct
-dump	Sources/indextts2-cli/main.swift	205;"	function
-dumpF	Sources/indextts2-cli/main.swift	232;"	function
-dump	Sources/indextts2-cli/main.swift	275;"	function
+computeDType	Sources/indextts2-cli/main.swift	23;"	function
+gptDType	Sources/indextts2-cli/main.swift	35;"	function
+err	Sources/indextts2-cli/main.swift	46;"	function
+SRTEntry	Sources/indextts2-cli/main.swift	130;"	struct
+dump	Sources/indextts2-cli/main.swift	249;"	function
+dumpF	Sources/indextts2-cli/main.swift	276;"	function
+dump	Sources/indextts2-cli/main.swift	319;"	function
 !_TAG_KIND_DESCRIPTION!Python	c,class	/classes/
 !_TAG_KIND_DESCRIPTION!Python	f,function	/functions/
 !_TAG_KIND_DESCRIPTION!Python	m,member	/class members/
